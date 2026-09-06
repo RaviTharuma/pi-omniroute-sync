@@ -41,6 +41,8 @@ export interface OmniContext {
 	mode: "tui" | "rpc" | "json" | "print";
 	signal?: AbortSignal;
 	ui: OmniUI;
+	model?: { provider?: string; id?: string };
+	modelRegistry?: { find(provider: string, id: string): unknown };
 }
 
 export interface ProviderModelConfig {
@@ -105,8 +107,14 @@ export interface OmniPI {
 	on(event: "session_shutdown", handler: () => void): void;
 	on(
 		event: "model_select",
-		handler: (event: { model?: { id?: string } }, ctx: OmniContext) => void | Promise<void>,
+		handler: (event: { model?: { id?: string; provider?: string } }, ctx: OmniContext) => void | Promise<void>,
 	): void;
+	on(event: "before_agent_start", handler: (event: unknown, ctx: OmniContext) => void | Promise<void>): void;
+	on(
+		event: "after_provider_response",
+		handler: (event: { status?: number }, ctx: OmniContext) => void | Promise<void>,
+	): void;
+	setModel?(model: unknown): Promise<boolean> | boolean;
 }
 
 export interface AgentHomeOptions {

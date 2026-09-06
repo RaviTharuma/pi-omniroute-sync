@@ -3,6 +3,9 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AgentHomeOptions } from "./contracts.ts";
 
+export const ON_UNREACHABLE_VALUES = ["none", "host-fallback"] as const;
+export type OnUnreachable = (typeof ON_UNREACHABLE_VALUES)[number];
+
 export interface OmniConfig {
 	serverUrl: string;
 	apiKey: string;
@@ -19,6 +22,8 @@ export interface OmniSettings {
 	syncOnStartup: boolean;
 	modelCacheTtlMinutes: number;
 	lastSuccessfulSyncAt: number;
+	onUnreachable: OnUnreachable;
+	fallbackModel: string;
 	apiKey: string;
 }
 
@@ -33,6 +38,8 @@ const DEFAULT_SETTINGS: OmniSettings = {
 	syncOnStartup: true,
 	modelCacheTtlMinutes: 60,
 	lastSuccessfulSyncAt: 0,
+	onUnreachable: "none",
+	fallbackModel: "",
 	apiKey: "",
 };
 
@@ -66,6 +73,10 @@ export function sanitizeSettings(input: Partial<OmniSettings>): OmniSettings {
 				: DEFAULT_SETTINGS.modelCacheTtlMinutes,
 		lastSuccessfulSyncAt:
 			Number.isFinite(input.lastSuccessfulSyncAt) && input.lastSuccessfulSyncAt! >= 0 ? input.lastSuccessfulSyncAt! : 0,
+		onUnreachable: ON_UNREACHABLE_VALUES.includes(input.onUnreachable as OnUnreachable)
+			? (input.onUnreachable as OnUnreachable)
+			: DEFAULT_SETTINGS.onUnreachable,
+		fallbackModel: String(input.fallbackModel ?? "").trim(),
 		apiKey: String(input.apiKey ?? ""),
 	};
 }
@@ -82,6 +93,33 @@ function normalizeServerUrl(value: string): string {
 	let url = value.trim().replace(/\/+$/, "");
 	if (url.endsWith("/v1")) url = url.slice(0, -3);
 	return url || DEFAULT_SETTINGS.serverUrl;
+}
+
+/**
+ * Probe the URL saved by /omni setup when a settings file exists.
+ * OMNIROUTE_URL is used only when the extension has not been configured yet.
+ */
+export function resolveConfiguredServerUrl(agentHome: string): string {
+	const settings = loadSettings(agentHome);
+	if (isConfigured(agentHome)) return settings.serverUrl;
+	return normalizeServerUrl(process.env.OMNIROUTE_URL ?? settings.serverUrl);
+}
+
+export function loadProbeConfig(agentHome: string): OmniConfig {
+	const runtime = loadConfig(agentHome);
+	return { ...runtime, serverUrl: resolveConfiguredServerUrl(agentHome) };
+}
+
+export function loadHopSettings(agentHome: string): Pick<OmniSettings, "onUnreachable" | "fallbackModel"> {
+	const settings = loadSettings(agentHome);
+	const onUnreachable = process.env.OMNIROUTE_ON_UNREACHABLE;
+	const fallbackModel = process.env.OMNIROUTE_FALLBACK_MODEL;
+	return {
+		onUnreachable: ON_UNREACHABLE_VALUES.includes(onUnreachable as OnUnreachable)
+			? (onUnreachable as OnUnreachable)
+			: settings.onUnreachable,
+		fallbackModel: (fallbackModel ?? settings.fallbackModel).trim(),
+	};
 }
 
 export function sanitizeConfig(input: Partial<OmniConfig>): OmniConfig {

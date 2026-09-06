@@ -62,6 +62,7 @@ The test suite covers:
 - Include/exclude glob matching and precedence.
 - Pricing field mapping and invalid numeric values.
 - Startup synchronization staleness and TTL boundaries.
+- Configured `serverUrl` health probes (not only `OMNIROUTE_URL`) and optional on-unreachable host fallback.
 - Config-dialog navigation, staged editing, native key handling, masking, validation, save/discard behavior, and in-place synchronization.
 
 For behavior that depends on a real OmniRoute deployment, also verify `/omni setup`, `/omni sync`, `/omni test <model>`, and model selection manually.
